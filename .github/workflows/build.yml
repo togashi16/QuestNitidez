@@ -20,7 +20,12 @@ jobs:
           gradle-version: "8.9"
 
       - name: Compilar
-        run: gradle assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleDebug 2>&1 | tee build.log || {
+            grep -E "^e: |error:|What went wrong|Could not|> " build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          }
 
       - name: Subir APK
         uses: actions/upload-artifact@v4
