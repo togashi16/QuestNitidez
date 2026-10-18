@@ -40,7 +40,7 @@ class MainActivity : Activity() {
     private val bg = Color.parseColor("#12141C")
     private val card = Color.parseColor("#1D2130")
     private val accent = Color.parseColor("#4FC3F7")
-    private val text = Color.parseColor("#E8EAF0")
+    private val fg = Color.parseColor("#E8EAF0")
     private val muted = Color.parseColor("#9AA0B4")
 
     data class Preset(val name: String, val detail: String, val w: Int, val h: Int)
@@ -71,7 +71,7 @@ class MainActivity : Activity() {
             setBackgroundColor(bg)
         }
 
-        root.addView(label("Quest Nitidez", 28f, text, bold = true))
+        root.addView(label("Quest Nitidez", 28f, fg, bold = true))
         root.addView(label("Sube la resolución de render para ver los juegos más nítidos", 15f, muted).apply {
             setPadding(0, dp(4), 0, dp(16))
         })
@@ -79,7 +79,7 @@ class MainActivity : Activity() {
         current = label("Resolución actual: …", 17f, accent, bold = true)
         root.addView(current)
 
-        status = label("", 15f, text).apply { setPadding(0, dp(8), 0, dp(16)) }
+        status = label("", 15f, fg).apply { setPadding(0, dp(8), 0, dp(16)) }
         root.addView(status)
 
         // Resolucion
@@ -129,7 +129,7 @@ class MainActivity : Activity() {
             if (bold) typeface = Typeface.DEFAULT_BOLD
         }
 
-    private fun section(t: String) = label(t, 18f, text, bold = true).apply {
+    private fun section(t: String) = label(t, 18f, fg, bold = true).apply {
         setPadding(0, dp(18), 0, dp(8))
     }
 
@@ -143,7 +143,7 @@ class MainActivity : Activity() {
         text = t
         isAllCaps = false
         textSize = 16f
-        setTextColor(text)
+        setTextColor(fg)
         gravity = Gravity.CENTER
         background = GradientDrawable().apply {
             cornerRadius = dp(14).toFloat()
@@ -157,7 +157,7 @@ class MainActivity : Activity() {
 
     private fun setStatus(msg: String, ok: Boolean = true) = main.post {
         status.text = msg
-        status.setTextColor(if (ok) text else Color.parseColor("#FF8A80"))
+        status.setTextColor(if (ok) fg else Color.parseColor("#FF8A80"))
     }
 
     // ---------------- ADB ----------------
