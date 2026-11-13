@@ -11,7 +11,7 @@
     </queries>
 
     <application
-        android:label="Quest Nitidez"
+        android:label="Play Store para Quest"
         android:allowBackup="false"
         android:theme="@android:style/Theme.DeviceDefault">
 

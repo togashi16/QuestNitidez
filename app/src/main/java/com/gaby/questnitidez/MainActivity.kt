@@ -20,7 +20,7 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /**
- * Quest Nitidez
+ * Play Store para Quest (antes Quest Nitidez)
  * Cambia la resolucion de render de las Meta Quest 3S desde dentro de las gafas.
  *
  * Como funciona: las apps normales no pueden cambiar "debug.oculus.*".
@@ -78,7 +78,7 @@ class MainActivity : Activity() {
             setBackgroundColor(bg)
         }
 
-        root.addView(label("Quest Nitidez", 28f, fg, bold = true))
+        root.addView(label("Play Store para Quest", 28f, fg, bold = true))
         root.addView(label("Nitidez de los juegos y tienda de Google en tus Quest", 15f, muted).apply {
             setPadding(0, dp(4), 0, dp(12))
         })
