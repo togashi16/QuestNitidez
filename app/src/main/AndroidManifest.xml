@@ -3,6 +3,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Para poder abrir Aurora Store, Shizuku y Play Store desde la app -->
+    <queries>
+        <package android:name="com.aurora.store" />
+        <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="com.android.vending" />
+    </queries>
+
     <application
         android:label="Quest Nitidez"
         android:allowBackup="false"

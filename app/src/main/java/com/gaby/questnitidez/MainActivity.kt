@@ -3,6 +3,7 @@ package com.gaby.questnitidez
 import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
+import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
@@ -35,6 +36,12 @@ class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
     private lateinit var status: TextView
     private lateinit var current: TextView
+    private lateinit var googleState: TextView
+    private lateinit var downloadsBox: LinearLayout
+    private lateinit var tabNitidez: View
+    private lateinit var tabGoogle: View
+    private lateinit var tabButtons: List<Button>
+    private val store by lazy { GoogleStore(this) { setStatus(it) } }
 
     // Colores
     private val bg = Color.parseColor("#12141C")
@@ -72,15 +79,48 @@ class MainActivity : Activity() {
         }
 
         root.addView(label("Quest Nitidez", 28f, fg, bold = true))
-        root.addView(label("Sube la resolución de render para ver los juegos más nítidos", 15f, muted).apply {
-            setPadding(0, dp(4), 0, dp(16))
+        root.addView(label("Nitidez de los juegos y tienda de Google en tus Quest", 15f, muted).apply {
+            setPadding(0, dp(4), 0, dp(12))
         })
+
+        // Pestañas
+        val tabs = row()
+        val b1 = bigButton("Nitidez") { showTab(0) }
+        val b2 = bigButton("Google / Play Store") { showTab(1) }
+        tabButtons = listOf(b1, b2)
+        tabs.addView(b1, weighted(64))
+        tabs.addView(b2, weighted(64))
+        root.addView(tabs)
+
+        status = label("", 15f, fg).apply { setPadding(0, dp(12), 0, dp(8)) }
+        root.addView(status)
+
+        tabNitidez = buildNitidezTab()
+        tabGoogle = buildGoogleTab()
+        root.addView(tabNitidez)
+        root.addView(tabGoogle)
+        showTab(0)
+
+        return ScrollView(this).apply {
+            setBackgroundColor(bg)
+            addView(root)
+        }
+    }
+
+    private fun showTab(i: Int) {
+        tabNitidez.visibility = if (i == 0) View.VISIBLE else View.GONE
+        tabGoogle.visibility = if (i == 1) View.VISIBLE else View.GONE
+        tabButtons.forEachIndexed { idx, b ->
+            (b.background as GradientDrawable).setColor(if (idx == i) Color.parseColor("#2B3550") else card)
+        }
+        if (i == 1) refreshGoogle()
+    }
+
+    private fun buildNitidezTab(): View {
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         current = label("Resolución actual: …", 17f, accent, bold = true)
         root.addView(current)
-
-        status = label("", 15f, fg).apply { setPadding(0, dp(8), 0, dp(16)) }
-        root.addView(status)
 
         // Resolucion
         root.addView(section("Resolución por ojo"))
@@ -115,11 +155,72 @@ class MainActivity : Activity() {
             14f, muted
         ).apply { setPadding(0, dp(20), 0, 0) })
 
-        return ScrollView(this).apply {
-            setBackgroundColor(bg)
-            addView(root)
-        }
+        return root
     }
+
+    private fun buildGoogleTab(): View {
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        googleState = label("Estado: …", 16f, accent, bold = true)
+        root.addView(googleState)
+
+        // Paso 1: tienda
+        root.addView(section("1 · Tienda de Google Play (Aurora Store)"))
+        root.addView(note(
+            "Aurora Store muestra el catálogo completo de Google Play. Entras con tu cuenta de Google " +
+            "(o en modo anónimo), buscas cualquier app y la instalas. No necesita servicios de Google."
+        ))
+        val r1 = row()
+        r1.addView(bigButton("Instalar / actualizar\nAurora Store") { installAurora() }, weighted())
+        r1.addView(bigButton("Abrir Aurora Store") { launch(Pkg.AURORA) }, weighted())
+        root.addView(r1)
+
+        // Paso 2: Shizuku
+        root.addView(section("2 · Instalación sin bloqueos (Shizuku)"))
+        root.addView(note(
+            "Las Quest no dejan que una tienda instale apps por su cuenta. Shizuku le presta a Aurora " +
+            "los permisos de ADB. En Aurora: Ajustes → Instalación → Instalador → Shizuku, y acepta el permiso.\n" +
+            "Tras reiniciar las gafas: adb tcpip 5555 y pulsa \"Arrancar Shizuku\"."
+        ))
+        val r2 = row()
+        r2.addView(bigButton("Instalar Shizuku") { installShizuku() }, weighted())
+        r2.addView(bigButton("Arrancar Shizuku") { startShizuku() }, weighted())
+        root.addView(r2)
+
+        // Paso 3: APKs de Descargas
+        root.addView(section("3 · Instalar APKs de la carpeta Descargas"))
+        root.addView(note(
+            "Descarga un .apk, .apks, .apkm o .xapk con el navegador del visor y luego instálalo aquí. " +
+            "Si están las 3 piezas de Google se instalan en el orden correcto."
+        ))
+        val r3 = row()
+        r3.addView(bigButton("Buscar en Descargas") { scanDownloads() }, weighted())
+        r3.addView(bigButton("Instalar todo lo encontrado") { installAllDownloads() }, weighted())
+        root.addView(r3)
+        downloadsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(downloadsBox)
+
+        // Paso 4: Google Play oficial
+        root.addView(section("4 · Google Play oficial (experimental)"))
+        root.addView(note(
+            "Solo si una app exige \"Servicios de Google Play\". Desde el navegador del visor descarga " +
+            "a Descargas estas 3 apps (versión arm64-v8a, Android 12 / nodpi):\n" +
+            "  • Google Services Framework\n" +
+            "  • Google Play Services\n" +
+            "  • Google Play Store\n" +
+            "Luego pulsa \"Instalar todo lo encontrado\" y abre Play Store para entrar con tu cuenta.\n" +
+            "Aviso: las Quest no están certificadas por Google; algunas apps (bancos, Netflix, " +
+            "notificaciones push) pueden no funcionar, y Meta puede romperlo en una actualización."
+        ))
+        val r4 = row()
+        r4.addView(bigButton("Abrir Play Store") { launch(Pkg.VENDING) }, weighted())
+        r4.addView(bigButton("Quitar Google Play") { removeGooglePlay() }, weighted())
+        root.addView(r4)
+
+        return root
+    }
+
+    private fun note(t: String) = label(t, 14f, muted).apply { setPadding(0, 0, 0, dp(6)) }
 
     private fun label(t: String, size: Float, color: Int, bold: Boolean = false) =
         TextView(this).apply {
@@ -135,7 +236,7 @@ class MainActivity : Activity() {
 
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
 
-    private fun weighted() = LinearLayout.LayoutParams(0, dp(84), 1f).apply {
+    private fun weighted(height: Int = 84) = LinearLayout.LayoutParams(0, dp(height), 1f).apply {
         setMargins(dp(6), dp(6), dp(6), dp(6))
     }
 
@@ -169,27 +270,50 @@ class MainActivity : Activity() {
         return AdbKeyPair.read(priv, pub)
     }
 
-    /** Ejecuta comandos en el shell de ADB de las propias gafas. */
-    private fun runShell(vararg cmds: String, onDone: (List<String>) -> Unit) {
+    @Volatile private var busy = false
+
+    /**
+     * Abre una conexion con el ADB de las propias gafas y ejecuta [block] en segundo plano.
+     * El resultado se entrega en el hilo principal con [onDone].
+     */
+    private fun <T> withAdb(block: (Dadb) -> T, onDone: (T) -> Unit) {
+        if (busy) { setStatus("Espera, hay una operación en curso…"); return }
+        busy = true
         setStatus("Conectando…")
         worker.execute {
+            var deliver: (() -> Unit)? = null
             try {
-                val out = mutableListOf<String>()
                 Dadb.create("127.0.0.1", 5555, keyPair()).use { adb ->
-                    cmds.forEach { out += adb.shell(it).allOutput.trim() }
+                    try {
+                        adb.shell("echo ok")
+                    } catch (e: Exception) {
+                        setStatus(
+                            "No pude conectar con el ADB de las gafas.\n" +
+                            "• Ejecuta  adb tcpip 5555  desde la PC (otra vez si reiniciaste).\n" +
+                            "• Acepta \"Permitir depuración\" en el visor y vuelve a intentar.\n" +
+                            "(${e.javaClass.simpleName}: ${e.message ?: "sin detalle"})",
+                            ok = false
+                        )
+                        return@use
+                    }
+                    val r = block(adb)
+                    deliver = { onDone(r) }
                 }
-                main.post { onDone(out) }
+            } catch (e: OpError) {
+                setStatus(e.message ?: "Error", ok = false)
             } catch (e: Exception) {
-                setStatus(
-                    "No pude conectar con el ADB de las gafas.\n" +
-                    "• Ejecuta  adb tcpip 5555  desde la PC (otra vez si reiniciaste).\n" +
-                    "• Acepta \"Permitir depuración\" en el visor y vuelve a intentar.\n" +
-                    "(${e.javaClass.simpleName}: ${e.message ?: "sin detalle"})",
-                    ok = false
-                )
+                setStatus("Error: ${e.javaClass.simpleName}: ${e.message ?: "sin detalle"}", ok = false)
+            } finally {
+                busy = false
             }
+            // Se entrega despues de liberar "busy" para que onDone pueda encadenar otra operacion
+            deliver?.let { d -> main.post { d() } }
         }
     }
+
+    /** Ejecuta comandos en el shell de ADB de las propias gafas. */
+    private fun runShell(vararg cmds: String, onDone: (List<String>) -> Unit) =
+        withAdb({ adb -> cmds.map { adb.shell(it).allOutput.trim() } }, onDone)
 
     private fun refreshCurrent() {
         runShell(
@@ -229,6 +353,91 @@ class MainActivity : Activity() {
         ) {
             setStatus("Resolución de fábrica restaurada. (La frecuencia vuelve a la normal al reiniciar.)")
             refreshCurrent()
+        }
+    }
+
+    // ---------------- Google / Play Store ----------------
+
+    private fun refreshGoogle() {
+        withAdb({ adb -> store.installedPackages(adb) to adb.shell("pidof shizuku_server").output.isNotBlank() }) { (pkgs, shizukuOn) ->
+            fun mark(p: String) = if (p in pkgs) "✔" else "✘"
+            googleState.text =
+                "Aurora Store ${mark(Pkg.AURORA)}   ·   Shizuku ${mark(Pkg.SHIZUKU)}" +
+                (if (Pkg.SHIZUKU in pkgs) (if (shizukuOn) " (activo)" else " (detenido)") else "") + "\n" +
+                "Google Play: Framework ${mark(Pkg.GSF)}  Services ${mark(Pkg.GMS)}  Store ${mark(Pkg.VENDING)}"
+            setStatus("Conectado ✔")
+        }
+    }
+
+    private fun installAurora() = withAdb({ store.installAurora(it) }) {
+        setStatus("Aurora Store instalada ✔ Ábrela, elige \"Cuenta de Google\" o \"Anónima\" y busca tus apps.\n" +
+            "Recomendado: instala también Shizuku (paso 2).")
+        refreshGoogle()
+    }
+
+    private fun installShizuku() = withAdb({ store.installShizuku(it) }) {
+        setStatus("Shizuku instalado y activo ✔\nEn Aurora: Ajustes → Instalación → Instalador → Shizuku.")
+        refreshGoogle()
+    }
+
+    private fun startShizuku() = withAdb({ store.startShizuku(it) }) {
+        setStatus("Shizuku activo ✔ (se detiene al reiniciar las gafas).")
+        refreshGoogle()
+    }
+
+    private var found: List<RemoteApk> = emptyList()
+
+    private fun scanDownloads() = withAdb({ store.listDownloads(it) }) { list ->
+        found = list
+        downloadsBox.removeAllViews()
+        if (list.isEmpty()) {
+            setStatus("No hay .apk / .apks / .apkm / .xapk en la carpeta Descargas.", ok = false)
+            return@withAdb
+        }
+        list.forEach { apk ->
+            downloadsBox.addView(bigButton("Instalar  ${apk.name}") { installDownloads(listOf(apk)) },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60)).apply {
+                    setMargins(dp(6), dp(4), dp(6), dp(4))
+                })
+        }
+        setStatus("Encontré ${list.size} archivo(s). Toca uno para instalarlo o \"Instalar todo\".")
+    }
+
+    private fun installAllDownloads() {
+        if (found.isEmpty()) {
+            withAdb({ store.listDownloads(it) }) { list ->
+                found = list
+                if (list.isEmpty()) setStatus("No hay APKs en la carpeta Descargas.", ok = false)
+                else installDownloads(list)
+            }
+        } else installDownloads(found)
+    }
+
+    private fun installDownloads(items: List<RemoteApk>) = withAdb({ store.installFromDownloads(it, items) }) { done ->
+        setStatus("Instalado ✔\n" + done.joinToString("\n") +
+            "\nLas apps aparecen en Biblioteca → Fuentes desconocidas.")
+        refreshGoogle()
+    }
+
+    private fun removeGooglePlay() = withAdb({ adb ->
+        listOf(Pkg.VENDING, Pkg.GMS, Pkg.GSF).map { p -> adb.shell("pm uninstall $p").allOutput.trim() }
+    }) {
+        setStatus("Google Play quitado. Aurora Store sigue funcionando.")
+        refreshGoogle()
+    }
+
+    /** Abre una app instalada (ventana 2D dentro del visor). */
+    private fun launch(pkg: String) {
+        val intent = packageManager.getLaunchIntentForPackage(pkg)
+        if (intent != null) {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } else {
+            // Respaldo: lanzarla desde el shell de ADB
+            withAdb({ adb -> adb.shell("monkey -p $pkg -c android.intent.category.LAUNCHER 1").allOutput }) { out ->
+                if ("No activities found" in out || "not found" in out)
+                    setStatus("Esa app no está instalada todavía.", ok = false)
+                else setStatus("Abriendo…")
+            }
         }
     }
 }
